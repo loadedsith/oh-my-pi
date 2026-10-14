@@ -3311,7 +3311,10 @@ function openCodeModelManagerOptions(
 	const apiOverrides = (id: string): Api | undefined => {
 		// Route pins live in the `api-routes` behavior rules.
 		const route = apiRouteFor(providerId, id)?.api;
-		return route === "openai-completions" || route === "openai-responses" || route === "anthropic-messages"
+		return route === "openai-completions" ||
+			route === "openai-responses" ||
+			route === "anthropic-messages" ||
+			route === "google-generative-ai"
 			? route
 			: undefined;
 	};
@@ -7055,7 +7058,7 @@ function createOpenCodeApiResolution(
 	const baseUrlForApi = (api: Api): string => (api === "anthropic-messages" ? basePath : completionsBaseUrl);
 	// Per-id route pins live in the `api-routes` behavior rules.
 	const overrideRules: ApiResolutionRule[] = (
-		["openai-completions", "openai-responses", "anthropic-messages"] as const
+		["openai-completions", "openai-responses", "anthropic-messages", "google-generative-ai"] as const
 	).map(api => ({
 		matches: modelId => apiRouteFor(providerId, modelId)?.api === api,
 		resolved: { api, baseUrl: baseUrlForApi(api) },
@@ -7085,7 +7088,8 @@ function createOpenCodeApiResolution(
 // Resolver rules for the models.dev descriptor path; the per-id pins live in
 // the `api-routes` behavior rules, which also drive the live-discovery mapper.
 const OPENCODE_ZEN_API_RESOLUTION = createOpenCodeApiResolution("https://opencode.ai/zen", "opencode-zen");
-const OPENCODE_GO_API_RESOLUTION = createOpenCodeApiResolution("https://opencode.ai/zen/go", "opencode-go");
+const OPENCODE_GO_BASE_PATH = "https://opencode.ai/inference/go";
+const OPENCODE_GO_API_RESOLUTION = createOpenCodeApiResolution(OPENCODE_GO_BASE_PATH, "opencode-go");
 
 const COPILOT_BASE_URL = "https://api.githubcopilot.com";
 
@@ -7463,7 +7467,7 @@ const OPENCODE_MODELS_DEV_DESCRIPTORS: readonly ModelsDevProviderDescriptor[] = 
 				OPENCODE_ZEN_API_RESOLUTION.defaultResolution,
 			),
 	}),
-	openAiCompletionsDescriptor("opencode-go", "opencode-go", "https://opencode.ai/zen/go/v1", {
+	openAiCompletionsDescriptor("opencode-go", "opencode-go", `${OPENCODE_GO_BASE_PATH}/v1`, {
 		filterModel: filterActiveToolCallModels,
 		resolveApi: (modelId, raw) =>
 			resolveApiByRules(

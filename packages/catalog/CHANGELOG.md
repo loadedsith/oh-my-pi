@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed OpenCode Go Gemini 4 Argon Contributor using an unsupported protocol and thinking level; requests now use the native Gemini endpoint ([#15722](https://github.com/can1357/oh-my-pi/issues/15722)).
+- Fixed OpenCode Go model requests targeting the legacy endpoint instead of `/inference/go/v1` ([#15722](https://github.com/can1357/oh-my-pi/issues/15722)).
+
 ## [18.10.4] - 2026-10-13
 
 ### Added
