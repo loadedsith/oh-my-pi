@@ -765,6 +765,8 @@ interface FilesystemReadOptions {
 	onBufferedFile?: (bytes: Buffer) => void;
 	onConflictMarkers?: () => void;
 	lexicalAbsolutePath?: string;
+	/** Keep image routing under `:raw` (see `AgentToolContext.rawImages`). */
+	rawImages?: boolean;
 }
 
 /**
@@ -1670,7 +1672,7 @@ export class ReadTool implements AgentTool<typeof readSchema, ReadToolDetails> {
 		params: ReadParams,
 		signal?: AbortSignal,
 		_onUpdate?: AgentToolUpdateCallback<ReadToolDetails>,
-		_toolContext?: AgentToolContext,
+		toolContext?: AgentToolContext,
 		onBufferedFile?: (bytes: Buffer) => void,
 		onConflictMarkers?: () => void,
 		lexicalAbsolutePath?: string,
@@ -1738,6 +1740,7 @@ export class ReadTool implements AgentTool<typeof readSchema, ReadToolDetails> {
 				located = { url, path: target.path, sel: target.sel, spec: target.spec };
 			}
 		}
+		const rawImages = toolContext?.rawImages === true;
 		if (!located) {
 			return this.#readFilesystemPath(readPath, {
 				question,
@@ -1745,6 +1748,7 @@ export class ReadTool implements AgentTool<typeof readSchema, ReadToolDetails> {
 				onBufferedFile,
 				onConflictMarkers,
 				lexicalAbsolutePath,
+				rawImages,
 			});
 		}
 		// A located URL reads its backing file through the filesystem pipeline (images, `:img`,
@@ -1754,6 +1758,7 @@ export class ReadTool implements AgentTool<typeof readSchema, ReadToolDetails> {
 			question,
 			questionPath: readPath,
 			signal,
+			rawImages,
 		});
 		const details: ReadToolDetails = result.details ?? {};
 		details.resolvedPath ??= located.path;
@@ -1794,8 +1799,16 @@ export class ReadTool implements AgentTool<typeof readSchema, ReadToolDetails> {
 		options: FilesystemReadOptions,
 		media: { path?: string },
 	): Promise<AgentToolResult<ReadToolDetails>> {
-		const { located, question, questionPath, signal, onBufferedFile, onConflictMarkers, lexicalAbsolutePath } =
-			options;
+		const {
+			located,
+			question,
+			questionPath,
+			signal,
+			onBufferedFile,
+			onConflictMarkers,
+			lexicalAbsolutePath,
+			rawImages,
+		} = options;
 		const immutable = located?.spec.immutable === true;
 		const displayMode = resolveFileDisplayMode(this.session, { immutable });
 		// In-body continuation hints name the URL for located reads, so paging stays on the URL.
@@ -2015,11 +2028,12 @@ export class ReadTool implements AgentTool<typeof readSchema, ReadToolDetails> {
 		// extension, since only magic bytes — never the name — decide.
 		const wholeFileBytes = fileSize <= SNAPSHOT_MAX_BYTES ? await readWholeFile(absolutePath) : undefined;
 		const imageHeader = wholeFileBytes?.subarray(0, IMAGE_METADATA_HEADER_BYTES);
-		const imageMetadata = isRawSelector(parsed)
-			? null
-			: imageHeader !== undefined
-				? parseImageMetadata(imageHeader)
-				: await readImageMetadata(absolutePath);
+		const imageMetadata =
+			isRawSelector(parsed) && !rawImages
+				? null
+				: imageHeader !== undefined
+					? parseImageMetadata(imageHeader)
+					: await readImageMetadata(absolutePath);
 		const mimeType = imageMetadata?.mimeType;
 		const resolvedDisplayPath = located?.url ?? formatPathRelativeToCwd(renderAbsolutePath, this.session.cwd);
 		const shouldConvertWithMarkit = CONVERTIBLE_EXTENSIONS.has(ext);
